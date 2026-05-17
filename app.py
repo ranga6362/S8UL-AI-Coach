@@ -1,8 +1,8 @@
 """
 S8UL AI Coach v3.2 - Free Fire Max Esports Team Management
-FINAL BUILD - Enterprise Edition (Bug-Fixed Release)
-Features: IGL+Nader, Garena API (placeholder), Mood Tracker, Live Tournaments,
-          Sponsor ROI, AI VOD Timestamps, User Management, Deployment Ready
+FINAL BUILD - Enterprise Edition (Clean Deploy)
+Features: IGL+Nader, Mood Tracker, Live Tournaments,
+          AI VOD Timestamps, User Management, Deployment Ready
 """
 
 import streamlit as st
@@ -12,6 +12,7 @@ import random
 import datetime
 import json
 import time
+import os
 
 import pandas as pd
 import plotly.express as px
@@ -51,6 +52,10 @@ BURNOUT_LEVELS = {
 # DATABASE
 # ───────────────────────────────────────────────
 def init_db():
+    # DELETE old database file to ensure completely fresh start (no old demo data)
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -216,38 +221,6 @@ def init_db():
     """)
 
     c.execute("""
-        CREATE TABLE IF NOT EXISTS sponsors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            deal_value REAL,
-            start_date TEXT,
-            end_date TEXT,
-            deal_type TEXT,
-            status TEXT,
-            impressions INTEGER DEFAULT 0,
-            clicks INTEGER DEFAULT 0,
-            conversions INTEGER DEFAULT 0,
-            social_reach INTEGER DEFAULT 0,
-            notes TEXT
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS sponsor_activations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sponsor_id INTEGER,
-            date TEXT,
-            activation_type TEXT,
-            reach INTEGER,
-            engagement INTEGER,
-            revenue_generated REAL,
-            cost REAL,
-            roi REAL,
-            FOREIGN KEY (sponsor_id) REFERENCES sponsors(id)
-        )
-    """)
-
-    c.execute("""
         CREATE TABLE IF NOT EXISTS garena_api_cache (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id INTEGER,
@@ -258,7 +231,7 @@ def init_db():
         )
     """)
 
-    # Seed default users - FIXED: proper 5-value binding
+    # Seed default users
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
         default_users = [
@@ -484,8 +457,9 @@ def generate_mock_stats(uid, days=7):
     return stats
 
 def seed_demo_data():
-    """No hardcoded demo data. All players, moods, team comps must be added manually."""
+    """No hardcoded demo data. Everything must be added manually."""
     pass
+
 # ───────────────────────────────────────────────
 # SIDEBAR
 # ───────────────────────────────────────────────
@@ -532,7 +506,7 @@ def render_sidebar():
 
         quick_action = st.selectbox("Action", [
             "Select Action", "Add Player", "Log Scrim", "Add IGL Call", "Record VOD Note",
-            "Log Mood", "Add Sponsor"
+            "Log Mood"
         ], label_visibility="collapsed")
 
         if quick_action == "Add Player":
@@ -629,25 +603,6 @@ def render_sidebar():
                         st.rerun()
                 else:
                     st.info("No players available")
-
-        elif quick_action == "Add Sponsor":
-            with st.expander("Add Sponsor", expanded=True):
-                s_name = st.text_input("Sponsor Name", key="sb_sp_name")
-                s_value = st.number_input("Deal Value ($)", 0, 10000000, 50000, key="sb_sp_value")
-                s_type = st.selectbox("Deal Type", ["Title Sponsor", "Equipment Partner", "Technology Partner", "Streaming Partner", "Apparel Partner", "Other"], key="sb_sp_type")
-                if st.button("Add Sponsor", key="sb_save_sponsor"):
-                    if s_name:
-                        conn = get_conn()
-                        conn.execute("""
-                            INSERT INTO sponsors (name, deal_value, start_date, end_date, deal_type, status, notes)
-                            VALUES (?,?,?,?,?,?,?)
-                        """, (s_name, s_value, datetime.date.today().isoformat(), (datetime.date.today() + datetime.timedelta(days=365)).isoformat(), s_type, "Active", ""))
-                        conn.commit()
-                        conn.close()
-                        st.success("Sponsor added!")
-                        st.rerun()
-                    else:
-                        st.error("Sponsor name required")
 
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
@@ -798,20 +753,20 @@ def tab_performance():
             st.success("Stats saved!")
             st.rerun()
 
-    # Garena API Section
+    # Free Fire Max Stats Section
     st.markdown("---")
     st.subheader("🌐 Free Fire Max Stats Fetch")
     st.markdown("<p style='color:#888; font-size:0.9rem;'>Garena does not provide a public API for Free Fire Max. This section simulates stats fetch for demo purposes. For real data, manual entry or third-party trackers are required.</p>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        api_key = st.text_input("Garena API Key", type="password", key="garena_api_key", 
-                               help="Leave empty for demo simulation. Get API key from Garena Developer Portal.")
+        api_key = st.text_input("API Key (optional)", type="password", key="garena_api_key", 
+                               help="Leave empty for demo simulation.")
     with col2:
         if st.button("🔄 Fetch Stats", use_container_width=True, type="primary"):
             if not api_key:
                 st.warning("No API key provided. Running demo simulation...")
-            with st.spinner("Fetching from Garena API..."):
+            with st.spinner("Fetching stats..."):
                 time.sleep(1.5)
                 rng = random.Random(int(hashlib.md5(str(pid).encode()).hexdigest(), 16) % 10000)
                 fetched_stats = {
@@ -842,7 +797,7 @@ def tab_performance():
 
                 st.success(f"✅ Fetched {fetched_stats['matches']} matches | {fetched_stats['kills']} kills | {fetched_stats['damage']} dmg")
                 if not api_key:
-                    st.info("💡 This was a demo simulation. Add real API key for live data.")
+                    st.info("💡 This was a demo simulation.")
                 st.rerun()
 
     conn = get_conn()
@@ -850,7 +805,7 @@ def tab_performance():
     conn.close()
 
     if not cache_df.empty:
-        st.markdown("<p style='color:#888; font-size:0.85rem;'>Recent API Fetches:</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#888; font-size:0.85rem;'>Recent Fetches:</p>", unsafe_allow_html=True)
         for _, row in cache_df.iterrows():
             data = json.loads(row["api_data"])
             st.markdown(f"""
@@ -1129,7 +1084,7 @@ def tab_opponents():
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.subheader("Head-to-Head Records")
-        # FIXED: Proper win rate calculation using merge instead of .values alignment
+        # FIXED: Proper win rate calculation using merge with correct column name
         h2h = opp_df.groupby("team_name").agg({
             "result": lambda x: (x == "Win").sum(),
             "our_points": "sum",
@@ -1392,10 +1347,6 @@ def tab_tournaments():
             color = status_colors.get(row["status"], "#888")
             is_live = row["is_live"] == 1
             live_badge = "🔴 LIVE" if is_live else ""
-
-            current_rank_html = ""
-            if pd.notna(row.get("current_placement")):
-                current_rank_html = f'<span style="color:{S8UL_RED};">🏆 #{int(row["current_placement"])} Place</span>'
 
             st.markdown(f"""
                 <div style="background:{S8UL_CARD}; padding:16px; border-radius:12px; margin-bottom:12px;">
@@ -1761,177 +1712,7 @@ def tab_player_mood():
             st.rerun()
 
 # ───────────────────────────────────────────────
-# TAB 10: SPONSOR ROI TRACKER
-# ───────────────────────────────────────────────
-def tab_sponsors():
-    st.header("💰 Sponsor ROI Tracker")
-    st.markdown("<p style='color:#888; font-size:0.9rem;'>Track sponsor performance, activation ROI, and revenue impact</p>", unsafe_allow_html=True)
-
-    conn = get_conn()
-    sponsors_df = pd.read_sql_query("SELECT * FROM sponsors ORDER BY deal_value DESC", conn)
-    activations_df = pd.read_sql_query("""
-        SELECT sa.*, s.name as sponsor_name, s.deal_value
-        FROM sponsor_activations sa
-        JOIN sponsors s ON sa.sponsor_id = s.id
-        ORDER BY sa.date DESC
-    """, conn)
-    conn.close()
-
-    if not sponsors_df.empty:
-        active_deals = sponsors_df[sponsors_df["status"] == "Active"]
-        total_deal_value = active_deals["deal_value"].sum()
-        total_impressions = active_deals["impressions"].sum()
-        total_clicks = active_deals["clicks"].sum()
-        total_conversions = active_deals["conversions"].sum()
-
-        c1, c2, c3, c4 = st.columns(4)
-        for col, label, val, color in [
-            (c1, "Active Deal Value", f"${total_deal_value:,.0f}", S8UL_RED),
-            (c2, "Total Impressions", f"{total_impressions:,.0f}", "#4fc3f7"),
-            (c3, "Total Clicks", f"{total_clicks:,.0f}", "#ffab00"),
-            (c4, "Conversions", f"{total_conversions:,.0f}", "#00c853"),
-        ]:
-            col.markdown(f"""
-                <div style="background:{S8UL_CARD}; padding:15px; border-radius:10px; text-align:center;">
-                    <p style="color:#888; font-size:0.8rem; margin:0;">{label}</p>
-                    <p style="color:{color}; font-size:1.5rem; font-weight:700; margin:0;">{val}</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-    with st.expander("➕ Add Sponsor"):
-        s_name = st.text_input("Sponsor Name", key="sp_name")
-        s_value = st.number_input("Deal Value ($)", 0, 10000000, 50000, key="sp_value")
-        s_type = st.selectbox("Deal Type", ["Title Sponsor", "Equipment Partner", "Technology Partner", "Streaming Partner", "Apparel Partner", "Other"], key="sp_type")
-        s_start = st.date_input("Start Date", key="sp_start")
-        s_end = st.date_input("End Date", key="sp_end")
-        s_notes = st.text_area("Notes", key="sp_notes")
-        if st.button("Add Sponsor", key="sp_save"):
-            if s_name:
-                conn = get_conn()
-                conn.execute("""
-                    INSERT INTO sponsors (name, deal_value, start_date, end_date, deal_type, status, notes)
-                    VALUES (?,?,?,?,?,?,?)
-                """, (s_name, s_value, s_start.isoformat(), s_end.isoformat(), s_type, "Active", s_notes))
-                conn.commit()
-                conn.close()
-                st.success("Sponsor added!")
-                st.rerun()
-            else:
-                st.error("Sponsor name required")
-
-    if not sponsors_df.empty:
-        st.subheader("📊 Sponsor Portfolio")
-        for _, row in sponsors_df.iterrows():
-            status_color = "#00c853" if row["status"] == "Active" else "#888"
-            ctr = (row["clicks"] / row["impressions"] * 100) if row["impressions"] > 0 else 0
-            conv_rate = (row["conversions"] / row["clicks"] * 100) if row["clicks"] > 0 else 0
-
-            st.markdown(f"""
-                <div style="background:{S8UL_CARD}; padding:16px; border-radius:12px; margin-bottom:12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <span style="color:#fff; font-size:1.1rem; font-weight:700;">{row["name"]}</span>
-                        <span style="background:{status_color}; color:#000; padding:3px 12px; border-radius:12px; font-size:0.75rem; font-weight:700;">{row["status"]}</span>
-                    </div>
-                    <div style="display:flex; gap:20px; color:#888; font-size:0.85rem; margin-bottom:8px;">
-                        <span>💰 ${row["deal_value"]:,.0f}</span>
-                        <span>📅 {row["start_date"]} → {row["end_date"]}</span>
-                        <span>🏷️ {row["deal_type"]}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px;">
-                        <div style="text-align:center;">
-                            <p style="color:#888; font-size:0.7rem; margin:0;">IMPRESSIONS</p>
-                            <p style="color:#fff; font-weight:600; margin:0;">{row["impressions"]:,.0f}</p>
-                        </div>
-                        <div style="text-align:center;">
-                            <p style="color:#888; font-size:0.7rem; margin:0;">CLICKS</p>
-                            <p style="color:#fff; font-weight:600; margin:0;">{row["clicks"]:,.0f}</p>
-                        </div>
-                        <div style="text-align:center;">
-                            <p style="color:#888; font-size:0.7rem; margin:0;">CTR</p>
-                            <p style="color:#4fc3f7; font-weight:600; margin:0;">{ctr:.2f}%</p>
-                        </div>
-                        <div style="text-align:center;">
-                            <p style="color:#888; font-size:0.7rem; margin:0;">CONV. RATE</p>
-                            <p style="color:#00c853; font-weight:600; margin:0;">{conv_rate:.2f}%</p>
-                        </div>
-                    </div>
-                    <p style="color:#aaa; font-size:0.85rem; margin:8px 0 0 0;">{row["notes"] or ""}</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-    if not activations_df.empty:
-        st.subheader("📈 Activation Performance")
-
-        fig_roi = go.Figure()
-        for sponsor in activations_df["sponsor_name"].unique():
-            sponsor_data = activations_df[activations_df["sponsor_name"] == sponsor]
-            fig_roi.add_trace(go.Scatter(
-                x=sponsor_data["date"], y=sponsor_data["roi"],
-                mode="lines+markers", name=sponsor,
-                line=dict(width=3)
-            ))
-        fig_roi.update_layout(
-            title="ROI by Activation", paper_bgcolor=S8UL_DARK,
-            plot_bgcolor=S8UL_CARD, font_color="#fff",
-            margin=dict(l=20, r=20, t=40, b=20),
-            xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333"),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02)
-        )
-        st.plotly_chart(fig_roi, use_container_width=True)
-
-        st.subheader("Recent Activations")
-        for _, row in activations_df.head(10).iterrows():
-            roi_color = "#00c853" if row["roi"] > 4 else "#ffab00" if row["roi"] > 2 else "#ff5252"
-            st.markdown(f"""
-                <div style="background:{S8UL_CARD}; padding:12px 16px; border-radius:8px; margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:#fff; font-weight:600;">{row["sponsor_name"]} • {row["activation_type"]}</span>
-                        <span style="color:{roi_color}; font-weight:700; font-size:0.9rem;">ROI: {row['roi']:.2f}x</span>
-                    </div>
-                    <div style="display:flex; gap:20px; margin-top:6px; color:#888; font-size:0.85rem;">
-                        <span>📅 {row["date"]}</span>
-                        <span>👁️ {row["reach"]:,.0f} reach</span>
-                        <span>💵 ${row["revenue_generated"]:,.0f} revenue</span>
-                        <span>💸 ${row["cost"]:,.0f} cost</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # FIXED: Only show activation logging if there are active sponsors
-    active_sponsors_list = sponsors_df[sponsors_df["status"] == "Active"] if not sponsors_df.empty else pd.DataFrame()
-    if not active_sponsors_list.empty:
-        with st.expander("➕ Log Activation"):
-            sponsor_select = st.selectbox("Sponsor", active_sponsors_list["name"].tolist(), key="act_sponsor")
-            sponsor_id = active_sponsors_list[active_sponsors_list["name"] == sponsor_select]["id"].values[0]
-            act_type = st.text_input("Activation Type", key="act_type")
-            act_reach = st.number_input("Reach", 0, 10000000, 100000, key="act_reach")
-            act_engagement = st.number_input("Engagement", 0, 1000000, 5000, key="act_engagement")
-            act_revenue = st.number_input("Revenue Generated ($)", 0.0, 1000000.0, 5000.0, key="act_revenue")
-            act_cost = st.number_input("Cost ($)", 0.0, 1000000.0, 1000.0, key="act_cost")
-
-            roi_calc = act_revenue / act_cost if act_cost > 0 else 0
-            st.markdown(f"<p style='color:#888;'>Calculated ROI: <span style='color:{S8UL_RED}; font-weight:700;'>{roi_calc:.2f}x</span></p>", unsafe_allow_html=True)
-
-            if st.button("Log Activation", key="act_save"):
-                if act_type:
-                    conn = get_conn()
-                    conn.execute("""
-                        INSERT INTO sponsor_activations (sponsor_id, date, activation_type, reach, engagement, revenue_generated, cost, roi)
-                        VALUES (?,?,?,?,?,?,?,?)
-                    """, (sponsor_id, datetime.date.today().isoformat(), act_type, act_reach, act_engagement, act_revenue, act_cost, roi_calc))
-                    conn.commit()
-                    conn.close()
-                    st.success("Activation logged!")
-                    st.rerun()
-                else:
-                    st.error("Activation type required")
-    else:
-        st.info("Add active sponsors to log activations.")
-
-# ───────────────────────────────────────────────
-# TAB 11: AI COACH
+# TAB 10: AI COACH
 # ───────────────────────────────────────────────
 def tab_ai_coach():
     st.header("🤖 AI Coach")
@@ -2182,7 +1963,7 @@ def tab_ai_coach():
         """, unsafe_allow_html=True)
 
 # ───────────────────────────────────────────────
-# TAB 12: DASHBOARD OVERVIEW
+# TAB 11: DASHBOARD OVERVIEW
 # ───────────────────────────────────────────────
 def tab_dashboard():
     st.header("📈 Executive Dashboard")
@@ -2192,23 +1973,19 @@ def tab_dashboard():
     players_df = pd.read_sql_query("SELECT * FROM players WHERE status='Active'", conn)
     scrims_df = pd.read_sql_query("SELECT * FROM scrims ORDER BY date DESC LIMIT 5", conn)
     tour_df = pd.read_sql_query("SELECT * FROM tournaments WHERE status IN ('Ongoing', 'Upcoming') ORDER BY start_date", conn)
-    sponsors_df = pd.read_sql_query("SELECT * FROM sponsors WHERE status='Active'", conn)
     mood_df = pd.read_sql_query("SELECT * FROM player_mood ORDER BY date DESC", conn)
     conn.close()
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4 = st.columns(4)
     total_players = len(players_df)
-    active_sponsors = len(sponsors_df)
-    total_sponsor_value = sponsors_df["deal_value"].sum() if not sponsors_df.empty else 0
     upcoming_tour = len(tour_df[tour_df["status"] == "Upcoming"]) if not tour_df.empty else 0
     ongoing_tour = len(tour_df[tour_df["status"] == "Ongoing"]) if not tour_df.empty else 0
 
     kpis = [
         (c1, "👥 Players", total_players, "#fff"),
         (c2, "🏆 Tournaments", f"{ongoing_tour} Live / {upcoming_tour} Upcoming", S8UL_RED),
-        (c3, "💰 Sponsor Value", f"${total_sponsor_value:,.0f}", "#00c853"),
-        (c4, "🤝 Active Sponsors", active_sponsors, "#4fc3f7"),
-        (c5, "📊 Recent Scrims", len(scrims_df), "#ffab00"),
+        (c3, "📊 Recent Scrims", len(scrims_df), "#ffab00"),
+        (c4, "😊 Mood Logs", len(mood_df), "#4fc3f7"),
     ]
     for col, label, val, color in kpis:
         col.markdown(f"""
@@ -2387,7 +2164,7 @@ def main():
         "📈 Dashboard", "📊 Performance", "🎯 Scrims", "🧠 IGL Calls",
         "🎭 Opponents", "👥 Team Comp", "🗺️ Maps",
         "🏆 Tournaments", "🎬 VOD Review", "😊 Wellness",
-        "💰 Sponsors", "🤖 AI Coach", "⚙️ Admin"
+        "🤖 AI Coach", "⚙️ Admin"
     ])
 
     with tabs[0]:
@@ -2411,10 +2188,8 @@ def main():
     with tabs[9]:
         tab_player_mood()
     with tabs[10]:
-        tab_sponsors()
-    with tabs[11]:
         tab_ai_coach()
-    with tabs[12]:
+    with tabs[11]:
         tab_admin()
 
 if __name__ == "__main__":
