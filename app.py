@@ -484,189 +484,8 @@ def generate_mock_stats(uid, days=7):
     return stats
 
 def seed_demo_data():
-    conn = get_conn()
-    c = conn.cursor()
-
-    c.execute("SELECT COUNT(*) FROM players")
-    if c.fetchone()[0] > 0:
-        conn.close()
-        return
-
-    demo_players = [
-        ("Mortal", "123456789", "IGL"),
-        ("Scout", "987654321", "Nader"),
-        ("Jonathan", "456789123", "Rusher"),
-        ("Viper", "789123456", "Rusher"),
-        ("Regaltos", "321654987", "Support"),
-        ("NinjaJOD", "654987321", "Sniper"),
-    ]
-
-    for name, uid, role in demo_players:
-        c.execute("INSERT INTO players (name, uid, role, joined_date) VALUES (?, ?, ?, ?)",
-                  (name, uid, role, datetime.date.today().isoformat()))
-        pid = c.lastrowid
-        for stat in generate_mock_stats(uid):
-            c.execute("""
-                INSERT INTO daily_stats (player_id, date, matches, kills, damage, survival_time, booyahs, headshots)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (pid, stat["date"], stat["matches"], stat["kills"],
-                  stat["damage"], stat["survival_time"], stat["booyahs"], stat["headshots"]))
-
-    scrims = [
-        ("2026-05-10", "Bermuda", 1, 18, 30, "Aggressive early game paid off"),
-        ("2026-05-11", "Kalahari", 3, 12, 20, "Good rotations from Peak"),
-        ("2026-05-12", "Purgatory", 5, 8, 13, "Need better late zone positioning"),
-        ("2026-05-13", "Alpine", 2, 15, 24, "Excellent IGL calls in final zones"),
-        ("2026-05-14", "Solara", 7, 6, 10, "Rotate earlier next time"),
-        ("2026-05-15", "Nexterra", 1, 22, 34, "Perfect execution"),
-    ]
-    for s in scrims:
-        c.execute("INSERT INTO scrims (date, map, placement, kills, total_points, notes) VALUES (?,?,?,?,?,?)", s)
-
-    calls = [
-        ("2026-05-10", "Bermuda", 3, "Early Push", "Success", "Caught team rotating"),
-        ("2026-05-10", "Bermuda", 5, "Zone Hold", "Success", "Perfect positioning"),
-        ("2026-05-11", "Kalahari", 2, "Aggressive Drop", "Partial", "2 kills but lost 1 player"),
-        ("2026-05-12", "Purgatory", 4, "Late Rotate", "Failure", "Got sandwiched"),
-        ("2026-05-13", "Alpine", 6, "Split Push", "Success", "Flanked from both sides"),
-        ("2026-05-14", "Solara", 3, "Bunker Hold", "Partial", "Held but low on meds"),
-        ("2026-05-15", "Nexterra", 4, "High Ground", "Success", "Dominated final circle"),
-    ]
-    for call in calls:
-        c.execute("INSERT INTO igl_calls (date, map, zone, call_type, outcome, notes) VALUES (?,?,?,?,?,?)", call)
-
-    opponents = [
-        ("Total Gaming", "2026-05-10", "Bermuda", 1, 4, 18, 9, 30, 16, "Win", "Clean sweep"),
-        ("TSM Entity", "2026-05-11", "Kalahari", 3, 2, 12, 14, 20, 23, "Loss", "Close match"),
-        ("GodLike", "2026-05-13", "Alpine", 2, 5, 15, 7, 24, 12, "Win", "Strong finish"),
-        ("Orange Rock", "2026-05-15", "Nexterra", 1, 3, 22, 11, 34, 19, "Win", "Booyah!"),
-    ]
-    for opp in opponents:
-        c.execute("""
-            INSERT INTO opponents (team_name, match_date, map, our_placement, their_placement,
-            our_kills, their_kills, our_points, their_points, result, notes)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)
-        """, opp)
-
-    strategies = [
-        ("Bermuda", "Peak", "Peak -> Shipyard -> Factory", "Hold high ground at Factory, avoid open fields", "Watch for teams rotating from Clock Tower"),
-        ("Kalahari", "Refinery", "Refinery -> Command Post -> Shrine", "Use Refinery cover for early game, push Shrine late", "Be careful of third parties at Command Post"),
-        ("Purgatory", "Santorini", "Santorini -> Mars -> Cyber", "Control Mars bridge, rotate through Cyber buildings", "Sniper covers bridge from Mars tower"),
-        ("Alpine", "Village", "Village -> Camp -> Summit", "Camp has best loot, Summit for final circle", "Check Camp cabins thoroughly"),
-        ("Solara", "Space Station", "Space Station -> Dome -> Core", "Use Dome as mid-game hub, Core for final fights", "Low gravity at Core affects grenade throws"),
-        ("Nexterra", "Ruins", "Ruins -> Oasis -> Pyramid", "Oasis has water cover, Pyramid for high ground", "Watch for ambushes at Ruins entrance"),
-    ]
-    for strat in strategies:
-        c.execute("INSERT INTO map_strategies (map, drop_location, rotation, late_game_plan, notes) VALUES (?,?,?,?,?)", strat)
-
-    tournaments = [
-        ("FFIC 2026 Spring", "2026-04-01", "2026-05-30", "$500,000", "Completed", "League + Playoffs", "Finished 2nd overall", 0, 2, 20, 156, 89, 12),
-        ("FFWS 2026", "2026-06-15", "2026-07-20", "$1,000,000", "Upcoming", "Group Stage + Bracket", "Main goal for the year", 0, None, 24, 0, 0, 0),
-        ("S8UL Invitational", "2026-05-20", "2026-05-22", "$50,000", "Upcoming", "Single Elimination", "Home tournament advantage", 0, None, 16, 0, 0, 0),
-        ("Battle Royale Masters", "2026-03-01", "2026-03-28", "$200,000", "Completed", "Weekly Cups", "Won Week 3 and Week 4", 0, 1, 20, 201, 112, 8),
-    ]
-    for t in tournaments:
-        c.execute("""
-            INSERT INTO tournaments (name, start_date, end_date, prize_pool, status, format, notes,
-            is_live, current_placement, total_teams, points, kills, matches_played)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, t)
-
-    vods = [
-        ("2026-05-10", "Bermuda", "Total Gaming", "", "12:30", "Perfect third-party timing", "third-party,aggression", '[{"time":"02:15","event":"Early fight at Peak","type":"fight"},{"time":"08:30","event":"Rotation to Shipyard","type":"rotation"},{"time":"12:30","event":"Third-party at Factory","type":"fight"}]', 2, 1),
-        ("2026-05-11", "Kalahari", "TSM Entity", "", "08:45", "Rotate 30 seconds earlier", "rotation,timing", '[{"time":"04:20","event":"Drop fight at Refinery","type":"fight"},{"time":"11:10","event":"Late rotate to zone","type":"rotation"}]', 1, 1),
-        ("2026-05-13", "Alpine", "GodLike", "", "15:20", "IGL call to split push was key", "igl,split-push", '[{"time":"06:45","event":"Mid-game skirmish","type":"fight"},{"time":"14:00","event":"Split push execution","type":"rotation"},{"time":"15:20","event":"Final circle clutch","type":"fight"}]', 2, 1),
-        ("2026-05-15", "Nexterra", "Orange Rock", "", "22:10", "Best match of the season", "booyah,perfect", '[{"time":"03:30","event":"Drop fight at Ruins","type":"fight"},{"time":"09:15","event":"Rotation through Oasis","type":"rotation"},{"time":"18:40","event":"High ground take at Pyramid","type":"fight"},{"time":"22:10","event":"Final 1v3 clutch","type":"fight"}]', 3, 1),
-    ]
-    for vod in vods:
-        c.execute("""
-            INSERT INTO vod_reviews (match_date, map, opponent, video_link, timestamp, notes, tags,
-            ai_timestamps, ai_fights_detected, ai_rotations_detected)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, vod)
-
-    moods = [
-        (1, "2026-05-10", "Good", 7, 7.5, 8, 1, "Feeling confident after scrims"),
-        (1, "2026-05-11", "Good", 8, 8.0, 9, 0, "Great sleep, ready for tournament"),
-        (1, "2026-05-12", "Tired", 5, 5.5, 6, 2, "Long scrim session, need rest"),
-        (1, "2026-05-13", "Neutral", 6, 6.0, 7, 1, "Average day, nothing special"),
-        (1, "2026-05-14", "Stressed", 4, 4.0, 5, 3, "Pressure from upcoming FFWS qualifiers"),
-        (1, "2026-05-15", "Good", 7, 7.0, 8, 1, "Recovered well, feeling focused"),
-        (2, "2026-05-10", "Excellent", 9, 8.5, 9, 0, "Top performance today"),
-        (2, "2026-05-11", "Good", 7, 7.0, 8, 0, "Solid day"),
-        (2, "2026-05-12", "Good", 8, 8.0, 8, 1, "Strong scrim performance"),
-        (2, "2026-05-13", "Tired", 5, 5.0, 6, 2, "Late night VOD review"),
-        (2, "2026-05-14", "Neutral", 6, 6.5, 7, 1, "Decent energy"),
-        (2, "2026-05-15", "Good", 7, 7.5, 8, 0, "Ready for weekend"),
-        (3, "2026-05-10", "Good", 7, 7.0, 8, 1, "Consistent performance"),
-        (3, "2026-05-11", "Neutral", 6, 6.0, 7, 2, "Slight wrist pain"),
-        (3, "2026-05-12", "Burned Out", 3, 4.0, 4, 4, "Too many hours, need break"),
-        (3, "2026-05-13", "Tired", 4, 5.0, 5, 3, "Recovering from burnout"),
-        (3, "2026-05-14", "Neutral", 5, 6.0, 6, 2, "Slowly getting better"),
-        (3, "2026-05-15", "Good", 6, 7.0, 7, 1, "Back to normal"),
-    ]
-    for m in moods:
-        c.execute("""
-            INSERT INTO player_mood (player_id, date, mood, energy_level, sleep_hours, motivation, physical_pain, notes)
-            VALUES (?,?,?,?,?,?,?,?)
-        """, m)
-
-    sponsors = [
-        ("Red Bull", 150000, "2026-01-01", "2026-12-31", "Title Sponsor", "Active", 2500000, 45000, 1200, 850000, "Jersey front, stream overlays, social posts"),
-        ("Logitech G", 80000, "2026-02-01", "2026-08-31", "Equipment Partner", "Active", 1200000, 28000, 800, 420000, "Peripheral supply, unboxing content, discount codes"),
-        ("AMD", 60000, "2026-03-01", "2026-09-30", "Technology Partner", "Active", 800000, 15000, 450, 310000, "PC builds, benchmark content, tournament booths"),
-        ("Jio", 200000, "2026-01-01", "2026-12-31", "Streaming Partner", "Active", 5000000, 120000, 3500, 2100000, "Exclusive streaming rights, co-branded events"),
-        ("Nike", 100000, "2025-06-01", "2025-12-31", "Apparel Partner", "Expired", 1800000, 32000, 600, 550000, "Team jerseys, lifestyle merch, athlete endorsements"),
-    ]
-    for s in sponsors:
-        c.execute("""
-            INSERT INTO sponsors (name, deal_value, start_date, end_date, deal_type, status, impressions, clicks, conversions, social_reach, notes)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)
-        """, s)
-
-    activations = [
-        (1, "2026-05-01", "Social Media Campaign", 450000, 8500, 12500, 3000, 4.17),
-        (1, "2026-05-08", "Stream Overlay Takeover", 320000, 6200, 8900, 1500, 5.93),
-        (1, "2026-05-15", "Tournament Booth Activation", 180000, 4100, 5600, 2200, 2.55),
-        (2, "2026-05-03", "Product Unboxing Stream", 210000, 7800, 11200, 1800, 6.22),
-        (2, "2026-05-10", "Discount Code Push", 150000, 5200, 7800, 900, 8.67),
-        (3, "2026-05-05", "PC Build Showcase", 280000, 6500, 9200, 2500, 3.68),
-        (3, "2026-05-12", "Tournament Tech Setup", 190000, 4300, 6100, 1800, 3.39),
-        (4, "2026-05-02", "Co-stream Event", 680000, 15000, 22000, 4500, 4.89),
-        (4, "2026-05-09", "Fan Meetup Stream", 420000, 9800, 14500, 3200, 4.53),
-        (4, "2026-05-16", "FFIC Watch Party", 350000, 8200, 11800, 2800, 4.21),
-    ]
-    for a in activations:
-        c.execute("""
-            INSERT INTO sponsor_activations (sponsor_id, date, activation_type, reach, engagement, revenue_generated, cost, roi)
-            VALUES (?,?,?,?,?,?,?,?)
-        """, a)
-
-    c.execute("SELECT id FROM players WHERE role='IGL' LIMIT 1")
-    igl_row = c.fetchone()
-    igl = igl_row[0] if igl_row else 1
-    c.execute("SELECT id FROM players WHERE role='Nader' LIMIT 1")
-    nader_row = c.fetchone()
-    nader = nader_row[0] if nader_row else 2
-    c.execute("SELECT id FROM players WHERE role='Rusher' LIMIT 2")
-    rushers = [r[0] for r in c.fetchall()]
-    if len(rushers) < 2:
-        rushers = [3, 4]
-    c.execute("SELECT id FROM players WHERE role='Support' LIMIT 1")
-    sup = c.fetchone()
-    support = sup[0] if sup else 5
-    c.execute("SELECT id FROM players WHERE role='Sniper' LIMIT 1")
-    snip = c.fetchone()
-    sniper = snip[0] if snip else 6
-
-    c.execute("""
-        INSERT INTO team_compositions (name, map, igl_id, nader_id, rusher1_id, rusher2_id, support_id, sniper_id, created_date, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, ("S8UL Alpha", "Bermuda", igl, nader, rushers[0], rushers[1], support, sniper, "2026-05-01", 1))
-
-    conn.commit()
-    conn.close()
-
+    """No hardcoded demo data. All players, moods, team comps must be added manually."""
+    pass
 # ───────────────────────────────────────────────
 # SIDEBAR
 # ───────────────────────────────────────────────
@@ -981,8 +800,8 @@ def tab_performance():
 
     # Garena API Section
     st.markdown("---")
-    st.subheader("🌐 Garena API Auto-Fetch")
-    st.markdown("<p style='color:#888; font-size:0.9rem;'>Enter your Garena API key to fetch real player stats. Contact Garena for API access.</p>", unsafe_allow_html=True)
+    st.subheader("🌐 Free Fire Max Stats Fetch")
+    st.markdown("<p style='color:#888; font-size:0.9rem;'>Garena does not provide a public API for Free Fire Max. This section simulates stats fetch for demo purposes. For real data, manual entry or third-party trackers are required.</p>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -1316,12 +1135,12 @@ def tab_opponents():
             "our_points": "sum",
             "their_points": "sum"
         }).reset_index()
-        h2h.columns = ["Team", "Wins", "Our Points", "Their Points"]
 
         # Calculate total matches per team properly
         match_counts = opp_df.groupby("team_name").size().reset_index(name="Total Matches")
-        h2h = h2h.merge(match_counts, on="Team")
-        h2h["Win Rate"] = (h2h["Wins"] / h2h["Total Matches"] * 100).round(1)
+        h2h = h2h.merge(match_counts, on="team_name")
+        h2h["Win Rate"] = (h2h["result"] / h2h["Total Matches"] * 100).round(1)
+        h2h.columns = ["Team", "Wins", "Our Points", "Their Points", "Total Matches", "Win Rate"]
         h2h = h2h[["Team", "Wins", "Total Matches", "Win Rate", "Our Points", "Their Points"]]
 
         st.dataframe(h2h, use_container_width=True, hide_index=True)
