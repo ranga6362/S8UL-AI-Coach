@@ -331,7 +331,7 @@ def login_page():
 
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("Login", use_container_width=True, type="primary"):
+                if st.button("Login", width='stretch', type="primary"):
                     role = check_login(username, password)
                     if role:
                         st.session_state.logged_in = True
@@ -347,7 +347,7 @@ def login_page():
                     else:
                         st.error("Invalid credentials or account inactive")
             with c2:
-                if st.button("🎮 Demo Access", use_container_width=True):
+                if st.button("🎮 Demo Access", width='stretch'):
                     st.session_state.logged_in = True
                     st.session_state.username = "demo"
                     st.session_state.role = "Demo Coach"
@@ -605,7 +605,7 @@ def render_sidebar():
                     st.info("No players available")
 
         st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("🚪 Logout", width='stretch'):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
@@ -693,7 +693,7 @@ def tab_performance():
             xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333"),
             legend=dict(orientation="h", yanchor="bottom", y=1.02)
         )
-        st.plotly_chart(fig_kills, use_container_width=True)
+        st.plotly_chart(fig_kills, width='stretch')
 
     with col2:
         fig_dmg = go.Figure()
@@ -707,7 +707,7 @@ def tab_performance():
             margin=dict(l=20, r=20, t=40, b=20),
             xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333")
         )
-        st.plotly_chart(fig_dmg, use_container_width=True)
+        st.plotly_chart(fig_dmg, width='stretch')
 
     st.subheader("🤖 AI Insights")
     insights = []
@@ -763,7 +763,7 @@ def tab_performance():
         api_key = st.text_input("API Key (optional)", type="password", key="garena_api_key", 
                                help="Leave empty for demo simulation.")
     with col2:
-        if st.button("🔄 Fetch Stats", use_container_width=True, type="primary"):
+        if st.button("🔄 Fetch Stats", width='stretch', type="primary"):
             if not api_key:
                 st.warning("No API key provided. Running demo simulation...")
             with st.spinner("Fetching stats..."):
@@ -886,7 +886,7 @@ def tab_scrims():
                         title="Avg Points by Map")
             fig.update_layout(paper_bgcolor=S8UL_DARK, plot_bgcolor=S8UL_CARD,
                             font_color="#fff", margin=dict(l=20, r=20, t=40, b=20))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         with col2:
             daily_pts = scrims_df.groupby("date")["total_points"].sum().reset_index()
@@ -902,7 +902,7 @@ def tab_scrims():
                 margin=dict(l=20, r=20, t=40, b=20),
                 xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333")
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width='stretch')
     else:
         st.info("No scrims logged yet. Use the form above to add your first scrim.")
 
@@ -965,7 +965,7 @@ def tab_igl_calls():
                         color="outcome", color_discrete_map={"Success": "#00c853", "Partial": "#ffab00", "Failure": "#ff5252"})
             fig.update_layout(title="Call Outcomes", paper_bgcolor=S8UL_DARK,
                             font_color="#fff", margin=dict(l=20, r=20, t=40, b=20))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         with col2:
             zone_perf = calls_df.groupby(["zone", "outcome"]).size().unstack(fill_value=0).reset_index()
@@ -983,7 +983,7 @@ def tab_igl_calls():
                 font_color="#fff", margin=dict(l=20, r=20, t=40, b=20),
                 xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333")
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width='stretch')
 
         st.subheader("Recent Calls")
         for _, row in calls_df.head(15).iterrows():
@@ -1098,7 +1098,7 @@ def tab_opponents():
         h2h.columns = ["Team", "Wins", "Our Points", "Their Points", "Total Matches", "Win Rate"]
         h2h = h2h[["Team", "Wins", "Total Matches", "Win Rate", "Our Points", "Their Points"]]
 
-        st.dataframe(h2h, use_container_width=True, hide_index=True)
+        st.dataframe(h2h, width='stretch', hide_index=True)
 
         st.subheader("Match History")
         for _, row in opp_df.iterrows():
@@ -1422,7 +1422,7 @@ def tab_tournaments():
             margin=dict(l=20, r=20, t=40, b=20),
             xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333")
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         st.info("No tournaments added yet.")
 
@@ -1634,7 +1634,7 @@ def tab_player_mood():
                 xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333"),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02)
             )
-            st.plotly_chart(fig_mood, use_container_width=True)
+            st.plotly_chart(fig_mood, width='stretch')
 
         with col2:
             fig_sleep = go.Figure()
@@ -1657,7 +1657,7 @@ def tab_player_mood():
                 yaxis2=dict(overlaying="y", side="right", gridcolor="#333"),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02)
             )
-            st.plotly_chart(fig_sleep, use_container_width=True)
+            st.plotly_chart(fig_sleep, width='stretch')
 
         st.subheader("🚨 Wellness Alerts")
         alerts = []
@@ -1688,7 +1688,7 @@ def tab_player_mood():
         st.subheader("📋 Mood History")
         display_df = mood_df[["date", "mood", "energy_level", "sleep_hours", "motivation", "physical_pain", "notes"]].copy()
         display_df.columns = ["Date", "Mood", "Energy", "Sleep", "Motivation", "Pain", "Notes"]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width='stretch', hide_index=True)
 
     else:
         st.info("No mood data recorded for this player yet.")
